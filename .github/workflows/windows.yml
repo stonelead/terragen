@@ -1,0 +1,48 @@
+name: Launch Windows Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      authcode:
+        description: 'Authorization link'
+        required: true
+      pincode:
+        description: '6-digit PIN code'
+        required: true
+
+jobs:
+  setup-and-install:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      - name: Disable Firewall
+        run: |
+          Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False
+          Write-Host "Firewall disabled for all profiles."
+      - name: Install Chrome Remote Desktop Host
+        run: |
+          & {
+            $P = $env:TEMP + '\chromeremotedesktophost.msi'
+            Invoke-WebRequest 'https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi' -OutFile $P
+            Start-Process $P -Wait
+            Remove-Item $P
+          }
+          Write-Host "Chrome Remote Desktop host installed successfully."
+
+      - name: Configure Chrome Remote Desktop
+        run: |
+          ${{ github.event.inputs.authcode }} -pin=${{ github.event.inputs.pincode }}
+          Write-Host "CRD configured successfully."
+        shell: pwsh
+
+      - name: Run Installations Script
+        run: |
+          ./scripts/tools.ps1
+        shell: pwsh
+
+      - name: Keep Session Alive
+        run: Start-Sleep -Seconds $((6 * 3600))
+        shell: pwsh
